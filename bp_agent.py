@@ -1,4 +1,4 @@
-from agent import Agent
+from soccerpy.agent import Agent
 
 
 class BPAgent(Agent):

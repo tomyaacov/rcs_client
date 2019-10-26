@@ -1,67 +1,44 @@
-from model.b_event import BEvent
+from bp.model.b_event import BEvent
 from rcs_b_program_runner_listener import RCSBProgramRunnerListener
-from model.bprogram import BProgram
-from model.event_selection.simple_event_selection_strategy import SimpleEventSelectionStrategy
+from bp.model.bprogram import BProgram
+from bp.model.event_selection.simple_event_selection_strategy import SimpleEventSelectionStrategy
 from bp_agent import BPAgent
 import time
-from model.b_event import All
-from world_model import WorldModel
+from bp.model.b_event import All
 
 
 def start():
-    yield {'request': BEvent(name="(move 10 10)")}
+    yield {'request': BEvent(name="(move -40 15)")}
 
 
 def move_towards_ball():
     m, wm = yield {'waitFor': All()}
     while True:
-        if wm.ball is None:
-            m, wm = yield {'waitFor': All()}
+        if wm.ball is not None and wm.ball.distance is not None and wm.ball.distance > wm.server_parameters.kickable_margin:
+            m, wm = yield {'request': BEvent(name="(dash 65)")}
         else:
-            if wm.ball.distance is not None:
-                if wm.ball.distance > 0.7:
-                    m, wm = yield {'request': BEvent(name="(dash 65)")}
-                else:
-                    m, wm = yield {'waitFor': All()}
-            else:
-                m, wm = yield {'waitFor': All()}
+            m, wm = yield {'waitFor': All()}
 
 
 def spin_to_ball():
     m, wm = yield {'waitFor': All()}
-    m, wm = yield {'request': BEvent(name="(turn 30)")}
     while True:
-        if wm.ball is None:
-            m, wm = yield {'request': BEvent(name="(turn 30)")}
+        if wm.ball is not None and wm.ball.direction is not None:
+            direction = str(wm.ball.direction / 2)
+            m, wm = yield {'request': BEvent(name="(turn " + direction + ")")}
         else:
-            if wm.ball.direction is not None:
-                direction = str(wm.ball.direction / 2)
-                m, wm = yield {'request': BEvent(name="(turn " + direction + ")")}
-            else:
-                m, wm = yield {'request': BEvent(name="(turn 30)")}
+            m, wm = yield {'request': BEvent(name="(turn 30)")}
+
 
 def kick_ball():
     m, wm = yield {'waitFor': All()}
-    if wm.side == WorldModel.SIDE_R:
-        goal_pos = (-55, 0)
-    else:
-        goal_pos = (55, 0)
     while True:
-        if wm.is_ball_kickable():
-            # how far are we from the desired point?
-            # point_dist = wm.euclidean_distance(wm.abs_coords, goal_pos)
-            #
-            # # get absolute direction to the point
-            # abs_point_dir = wm.angle_between_points(wm.abs_coords, goal_pos)
-            #
-            # # get relative direction to point from body, since kicks are relative to
-            # # body direction.
-            # if wm.abs_body_dir is not None:
-            #     rel_point_dir = wm.abs_body_dir - abs_point_dir
-            # print(rel_point_dir)
-            if len(wm.goals) > 0:
-                wm.ah.kick(wm.goals[0].direction, wm.server_parameters.maxpower)
-                m, wm = yield {'waitFor': All()}
+        if wm.ball is not None and wm.ball.distance is not None and wm.ball.distance <= wm.server_parameters.kickable_margin:
+            target_in_sight = [x for x in wm.goals if x.goal_id == 'r']
+            if len(target_in_sight) > 0:
+                power = wm.server_parameters.maxpower / 2
+                direction = target_in_sight[0].direction
+                m, wm = yield {'request': BEvent(name="(kick " + str(power) + " " + str(direction) + ")")}
             else:
                 m, wm = yield {'waitFor': All()}
         else:
@@ -73,17 +50,15 @@ if __name__ == "__main__":
     import multiprocessing as mp
 
     # enforce corrent number of arguments, print help otherwise
-    if len(sys.argv) < 3:
-        print ("args: ./agent.py <team_name> <num_players>")
+    if len(sys.argv) < 2:
+        print ("args: ./base_controller.py <team_name>")
         sys.exit()
 
-    def spawn_agent(team_name):
+    def spawn_agent(team_name, b_program):
         """
         Used to run an agent in a separate physical process.
         """
 
-        b_program = BProgram(bthreads=[start(), move_towards_ball(), spin_to_ball(), kick_ball()],
-                             event_selection_strategy=SimpleEventSelectionStrategy())
         a = BPAgent(bprogram=b_program)
         a.bprogram.listener = RCSBProgramRunnerListener(a)
 
@@ -97,10 +72,12 @@ if __name__ == "__main__":
 
     # spawn all agents as seperate processes for maximum processing efficiency
     agentthreads = []
-    for agent in range(min(11, int(sys.argv[2]))):
-        print ("  Spawning agent %d..." % agent)
+    b_programs = [BProgram(bthreads=[start(), move_towards_ball(), spin_to_ball(), kick_ball()],
+                           event_selection_strategy=SimpleEventSelectionStrategy())]
+    for i in range(min(11, len(b_programs))):
+        print ("  Spawning agent %d..." % i)
 
-        at = mp.Process(target=spawn_agent, args=(sys.argv[1],))
+        at = mp.Process(target=spawn_agent, args=(sys.argv[1], b_programs[i]))
         at.daemon = True
         at.start()
 

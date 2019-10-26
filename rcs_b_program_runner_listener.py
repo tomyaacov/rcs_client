@@ -1,7 +1,7 @@
-from execution.listeners.b_program_runner_listener import BProgramRunnerListener
+from bp.execution.listeners.b_program_runner_listener import BProgramRunnerListener
 import time
-import message_parser
-import sp_exceptions
+from soccerpy import message_parser, sp_exceptions
+
 
 class RCSBProgramRunnerListener(BProgramRunnerListener):
 

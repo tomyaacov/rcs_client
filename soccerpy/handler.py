@@ -1,10 +1,8 @@
 import collections
 import queue as queue
 
-import message_parser
-import sp_exceptions
-import game_object
-from world_model import WorldModel
+from soccerpy import message_parser, sp_exceptions, game_object
+from soccerpy.world_model import WorldModel
 
 # should we print messages received from the server?
 PRINT_SERVER_MESSAGES = False
@@ -161,8 +159,8 @@ class MessageHandler:
                 # TODO: calculate player's speed!
 
                 new_players.append(game_object.Player(distance, direction,
-                    dist_change, dir_change, speed, teamname, side,
-                    uniform_number, body_dir, neck_dir))
+                                                      dist_change, dir_change, speed, teamname, side,
+                                                      uniform_number, body_dir, neck_dir))
 
             # parse goals
             elif name[0] == 'g':
@@ -186,7 +184,7 @@ class MessageHandler:
             elif name[0] == 'b':
                 # TODO: handle speed!
                 new_ball = game_object.Ball(distance, direction, dist_change,
-                        dir_change, None)
+                                            dir_change, None)
 
             # object very near to but not viewable by the player are 'blank'
 
@@ -205,7 +203,7 @@ class MessageHandler:
             # an out-of-view player
             elif name[0] == 'P':
                 new_players.append(game_object.Player(None, None, None, None,
-                    None, None, None, None, None, None))
+                                                      None, None, None, None, None, None))
 
             # an unhandled object type
             else:
